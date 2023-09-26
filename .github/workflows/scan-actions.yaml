@@ -55,12 +55,12 @@ jobs:
 
       - name: Commit results to Github
         run: |
-          git config --local user.email "xxx@xxx.io"
-          git config --global user.name "xxx"
+          git config --local user.email "joeli1002@qq.com"
+          git config --global user.name "joejoequte"
           git commit -m "Scan-Actions report" -a --allow-empty
 
       - name: Push changes
         uses: ad-m/github-push-action@master
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GIT_TOKEN }}
           branch: ${{ github.ref }}
