@@ -14,14 +14,24 @@ jobs:
         uses: actions/setup-go@v2
         with:
          go-version: '1.20'
+     
+      - name: 初始化Go模块
+        run: go mod init joejoequte/automated-subdomain-takeover
 
-      - name: Cache Go
+     # - name: Cache Go
+     #   id: cache-go
+      #  uses: actions/cache@v2
+       # with:
+        #  path: /home/runner/go
+         # key: ${{ runner.os }}-go
+
+      - name: 缓存 Go 依赖
         id: cache-go
         uses: actions/cache@v2
         with:
-          path: /home/runner/go
-          key: ${{ runner.os }}-go
-      
+          path: ${{ env.GOPATH }}/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          
       - name: 安装和更新 Go 工具
         if: steps.cache-go.outputs.cache-hit != 'true'
         run: |
