@@ -18,19 +18,19 @@ jobs:
       - name: 初始化Go模块
         run: go mod init joejoequte/automated-subdomain-takeover
 
-     # - name: Cache Go
-     #   id: cache-go
-      #  uses: actions/cache@v2
-       # with:
-        #  path: /home/runner/go
-         # key: ${{ runner.os }}-go
-
-      - name: 缓存 Go 依赖
+      - name: Cache Go
         id: cache-go
         uses: actions/cache@v2
         with:
-          path: ${{ env.GOPATH }}/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          path: /home/runner/go
+          key: ${{ runner.os }}-go
+
+    #  - name: 缓存 Go 依赖
+    #    id: cache-go
+    #    uses: actions/cache@v2
+    #    with:
+     #     path: ${{ env.GOPATH }}/pkg/mod
+      #    key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           
       - name: 安装和更新 Go 工具
         if: steps.cache-go.outputs.cache-hit != 'true'
@@ -39,6 +39,13 @@ jobs:
           go install github.com/projectdiscovery/httpx/cmd/httpx@latest
           go install github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
           go install github.com/tomnomnom/anew@latest
+
+      - name: 安装所需的Go模块
+        run: |
+           go get -u github.com/projectdiscovery/subfinder/v2/cmd/subfinder
+           go get -u github.com/projectdiscovery/httpx/cmd/httpx
+           go get -u github.com/projectdiscovery/nuclei/v2/cmd/nuclei
+   
 
       - name: Running Scanner
         run: |
