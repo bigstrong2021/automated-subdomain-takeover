@@ -57,6 +57,12 @@ jobs:
         run: |
           go run github.com/projectdiscovery/subfinder/v2/cmd/subfinder -silent -dL input/domains.txt -config config/subfinder-config.yaml | go run github.com/projectdiscovery/httpx/cmd/httpx -silent | go run github.com/projectdiscovery/nuclei/v2/cmd/nuclei -silent -t takeovers/ | anew output/nuclei_output.txt
       
+      - name: 显示漏洞
+        run: |
+          cat output/nuclei_output.txt | while read -r line; do
+            echo "::warning::Vulnerability Found: $line"  # 使用::warning::注释显示漏洞
+          done
+      
       - name: Sorting the output results
         run: |
           find output -type f -exec sort {} -o {} \;
@@ -70,7 +76,7 @@ jobs:
 
       - name: Commit results to Github
         run: |
-          git config --local user.email "joeli1002@qq.com"
+          git config --local user.email "j.oejoequte@gmail.com"
           git config --global user.name "joejoequte"
           git commit -m "Scan-Actions report" -a --allow-empty
 
