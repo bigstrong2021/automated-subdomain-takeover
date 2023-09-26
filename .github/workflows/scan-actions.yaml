@@ -1,40 +1,34 @@
 name: scan-actions
 
 on:
-#    schedule:
-#      - cron: '0 0 * * *'
-# Remove both comments to run this action on daily basis.
-    workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@master
+        uses: actions/checkout@v2
 
-      - name: Setup golang
+      - name: 设置 Go 环境
         uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16 # 请根据您的需求更新Go版本
 
-      - name: Cache Go
+      - name: 缓存 Go 依赖
         id: cache-go
         uses: actions/cache@v2
         with:
-          path: /home/runner/go
-          key: ${{ runner.os }}-go
+          path: ${{ env.GOPATH }}/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
 
-      - name: Setting up ProjectDiscovery tools
+      - name: 安装和更新 Go 工具
         if: steps.cache-go.outputs.cache-hit != 'true'
-        env:
-          GO111MODULE: on
         run: |
-          go get -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder
-          go get -v github.com/projectdiscovery/httpx/cmd/httpx
-          go get -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei
-          go get -u github.com/tomnomnom/anew
-        shell: bash
+          go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+          go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+          go install github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
+          go install github.com/tomnomnom/anew@latest
 
       - name: Running Scanner
         run: |
