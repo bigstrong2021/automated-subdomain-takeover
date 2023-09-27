@@ -1,4 +1,4 @@
-name: incloud
+name: scan-actions
 
 on:
   workflow_dispatch:
@@ -13,9 +13,9 @@ jobs:
       - name: 设置 Go 环境
         uses: actions/setup-go@v2
         with:
-          go-version: '1.16'  # 使用 Go 1.16 版本
-
-      - name: 初始化 Go 模块
+         go-version: '1.20'
+     
+      - name: 初始化Go模块
         run: go mod init joejoequte/automated-subdomain-takeover
 
       - name: Cache Go
@@ -25,89 +25,62 @@ jobs:
           path: /home/runner/go
           key: ${{ runner.os }}-go
 
-      - name: 安装依赖项
-        run: sudo apt-get install libpcap-dev
-
-      - name: 安装 ProjectDiscovery 工具
-        env:
-          GO111MODULE: on
+    #  - name: 缓存 Go 依赖
+    #    id: cache-go
+    #    uses: actions/cache@v2
+    #    with:
+     #     path: ${{ env.GOPATH }}/pkg/mod
+      #    key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          
+      - name: 安装和更新 Go 工具
+        if: steps.cache-go.outputs.cache-hit != 'true'
         run: |
-          go get -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder
-          go get -v github.com/projectdiscovery/dnsx/cmd/dnsx
-          go get -v github.com/projectdiscovery/naabu/v2/cmd/naabu
-          go get -v github.com/projectdiscovery/httpx/cmd/httpx
-          go get -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei
-          go get -v github.com/projectdiscovery/mapcidr/cmd/mapcidr
+          go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+          go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+          go install github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
+          go install github.com/tomnomnom/anew@latest
+
+      - name: 安装所需的Go模块
+        run: |
+           go get -u github.com/projectdiscovery/subfinder/v2/cmd/subfinder
+           go get -u github.com/projectdiscovery/httpx/cmd/httpx
+           go get -u github.com/projectdiscovery/nuclei/v2/cmd/nuclei
+   
+
+      - name: Running Scanner
+        run: |
+          nuclei -update-templates
+          subfinder -silent -dL input/domains.txt -config config/subfinder-config.yaml | anew output/passive_subdomains.txt | httpx -silent | anew output/active_urls.txt | nuclei -silent -t takeovers/ | anew output/nuclei_output.txt
         shell: bash
 
-      - name: 运行 SubFinder 进行被动 DNS 枚举
+      - name: 运行扫描器
         run: |
-          # 使用 SubFinder 枚举被动 DNS
-          subfinder -dL input/domains.txt -config config/subfinder-config.yaml -o output/passive_subdomains.txt
-        shell: bash
-
-      - name: 运行 dnsx 进行有效的 DNS 筛选
+          go run github.com/projectdiscovery/subfinder/v2/cmd/subfinder -silent -dL input/domains.txt -config config/subfinder-config.yaml | go run github.com/projectdiscovery/httpx/cmd/httpx -silent | go run github.com/projectdiscovery/nuclei/v2/cmd/nuclei -silent -t takeovers/ | anew output/nuclei_output.txt
+      
+      - name: 显示漏洞
         run: |
-          # 使用 dnsx 进行有效的 DNS 筛选
-          dnsx -l output/passive_subdomains.txt -t 50 | tee output/active_subdomains.txt
-        shell: bash
-
-      - name: 运行 naabu 检查前 1000 个端口
-        run: |
-          # 使用 naabu 检查前 1000 个端口
-          naabu -iL output/active_subdomains.txt -rate 10000 -top-ports 1000 | tee output/active_ports.txt
-        shell: bash
-
-      - name: 运行 httpx 用于 HTTP 服务器探测
-        run: |
-          # 使用 httpx 进行 HTTP 服务器探测
-          httpx -l output/active_ports.txt -title
-          httpx -l output/active_ports.txt | tee output/active_urls.txt
-        shell: bash
-
-      - name: Xray 扫描 URLs
-        run: |
-          # 下载并设置 Xray 工具
-          wget https://github.com/chaitin/xray/releases/download/1.7.1/xray_linux_amd64.zip
-          unzip xray_linux_amd64.zip
-          mv xray_linux_amd64 xray
-
-          # 使用 Xray 扫描 URLs，并将结果合并到一个文件中
-          set +e
-          for i in $(cat output/active_urls.txt); do
-            ./xray webscan --basic-crawler $i --html-output output/`date +%Y%m%d%H%M%S`.html
+          cat output/nuclei_output.txt | while read -r line; do
+            echo "::warning::Vulnerability Found: $line"  # 使用::warning::注释显示漏洞
           done
-          cat output/*.html >> output/xray.html
-        shell: bash
-
-      - name: 对输出结果进行排序
+      
+      - name: Sorting the output results
         run: |
-          # 对所有输出结果文件进行排序
           find output -type f -exec sort {} -o {} \;
         shell: bash
 
-      - name: 创建本地更改
+      - name: Create local changes
         run: |
-          # 将结果文件添加到 Git 中
-          git add output/active_ports.txt
+          git add output/passive_subdomains.txt
           git add output/active_urls.txt
-          git add output/xray.html
-        shell: bash
+          git add output/nuclei_output.txt
 
-      - name: 提交结果到 GitHub
+      - name: Commit results to Github
         run: |
-          # 配置 Git 用户信息
           git config --local user.email "j.oejoequte@gmail.com"
           git config --global user.name "joejoequte"
+          git commit -m "Scan-Actions report" -a --allow-empty
 
-          # 提交结果
-          git commit -m "InCloud Report" -a --allow-empty
-        env:
-          GIT_COMMITTER_NAME: "joejoequte"
-          GIT_COMMITTER_EMAIL: "j.oejoequte@gmail.com"
-        shell: bash
-
-      - name: 推送更改到 GitHub
+      - name: Push changes
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GIT_TOKEN }}
