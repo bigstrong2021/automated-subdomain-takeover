@@ -22,13 +22,8 @@ sources:
     - intelx
     - passivetotal
     - robtex
-    - riddler
     - securitytrails
     - shodan
-    - spyse
-    - sublist3r
-    - threatcrowd
-    - threatminer
     - virustotal
 all-sources:
     - alienvault
@@ -48,18 +43,13 @@ all-sources:
     - intelx
     - passivetotal
     - rapiddns
-    - riddler
     - recon
     - robtex
     - securitytrails
     - shodan
     - sitedossier
     - sonarsearch
-    - spyse
-    - sublist3r
     - threatbook
-    - threatcrowd
-    - threatminer
     - virustotal
     - waybackarchive
     - zoomeye
@@ -74,7 +64,6 @@ recursive:
     - passivetotal
     - securitytrails
     - sonarsearch
-    - sublist3r
     - virustotal
 binaryedge: []
 censys: []
@@ -88,9 +77,8 @@ recon: []
 robtex: []
 securitytrails: []
 shodan: []
-spyse: []
 threatbook: []
 urlscan: []
 virustotal: []
 zoomeye: []
-subfinder-version: 2.4.7
+subfinder-version: 2.6.6

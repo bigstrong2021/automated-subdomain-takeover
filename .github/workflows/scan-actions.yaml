@@ -1,66 +1,99 @@
-name: scan-actions
+name: 扫描操作
 
 on:
-#    schedule:
-#      - cron: '0 0 * * *'
-# Remove both comments to run this action on daily basis.
-    workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@master
+      # 检出代码库
+      - name: 检出代码库
+        uses: actions/checkout@v3  # 更新到最新版本
 
-      - name: Setup golang
-        uses: actions/setup-go@v2
+      # 设置 Go 环境，使用 Go 1.22
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v3  # 更新到最新版本
         with:
-          go-version: 1.14
+          go-version: '1.22'
 
-      - name: Cache Go
-        id: cache-go
-        uses: actions/cache@v2
-        with:
-          path: /home/runner/go
-          key: ${{ runner.os }}-go
+      # 初始化 Go 模块
+      - name: 初始化 Go 模块
+        run: go mod init joejoequte/automated-subdomain-takeover
 
-      - name: Setting up ProjectDiscovery tools
-        if: steps.cache-go.outputs.cache-hit != 'true'
-        env:
-          GO111MODULE: on
+      # 安装和更新 Go 工具
+      - name: 安装和更新 Go 工具
         run: |
-          go get -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder
-          go get -v github.com/projectdiscovery/httpx/cmd/httpx
-          go get -v github.com/projectdiscovery/nuclei/v2/cmd/nuclei
-          go get -u github.com/tomnomnom/anew
-        shell: bash
+          go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+          go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+          go install github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest
+          go install github.com/tomnomnom/anew@latest
 
-      - name: Running Scanner
+      # 缓存 Go 依赖
+      - name: 缓存 Go 依赖
+        id: cache-go-deps
+        uses: actions/cache@v3  # 更新到最新版本
+        with:
+          path: |
+            ~/.cache/go-build
+            /go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # 安装所需的 Go 模块
+      - name: 安装所需的 Go 模块
+        run: |
+          go get -u github.com/projectdiscovery/subfinder/v2/cmd/subfinder
+          go get -u github.com/projectdiscovery/httpx/cmd/httpx
+          go get -u github.com/projectdiscovery/nuclei/v2/cmd/nuclei
+
+      # 将 Go 工具路径添加到环境变量
+      - name: 更新 PATH 环境变量
+        run: echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+
+      # 运行扫描器
+      - name: 运行扫描器
         run: |
           nuclei -update-templates
           subfinder -silent -dL input/domains.txt -config config/subfinder-config.yaml | anew output/passive_subdomains.txt | httpx -silent | anew output/active_urls.txt | nuclei -silent -t takeovers/ | anew output/nuclei_output.txt
         shell: bash
 
-      - name: Sorting the output results
+      # 运行扫描器的另一个版本
+      - name: 运行扫描器的另一个版本
+        run: |
+          go run github.com/projectdiscovery/subfinder/v2/cmd/subfinder -silent -dL input/domains.txt -config config/subfinder-config.yaml | go run github.com/projectdiscovery/httpx/cmd/httpx -silent | go run github.com/projectdiscovery/nuclei/v2/cmd/nuclei -silent -t takeovers/ | anew output/nuclei_output.txt
+
+      # 显示漏洞
+      - name: 显示漏洞
+        run: |
+          cat output/nuclei_output.txt | while read -r line; do
+            echo "::warning::发现漏洞: $line"  # 使用::warning::注释显示漏洞
+          done
+
+      # 排序输出结果
+      - name: 排序输出结果
         run: |
           find output -type f -exec sort {} -o {} \;
         shell: bash
 
-      - name: Create local changes
+      # 创建本地更改
+      - name: 创建本地更改
         run: |
           git add output/passive_subdomains.txt
           git add output/active_urls.txt
           git add output/nuclei_output.txt
 
-      - name: Commit results to Github
+      # 提交结果到 Github
+      - name: 提交结果到 Github
         run: |
-          git config --local user.email "xxx@xxx.io"
-          git config --global user.name "xxx"
-          git commit -m "Scan-Actions report" -a --allow-empty
+          git config --local user.email "j.oejoequte@gmail.com"
+          git config --global user.name "joejoequte"
+          git commit -m "扫描操作报告" -a --allow-empty
 
-      - name: Push changes
+      # 推送更改
+      - name: 推送更改
         uses: ad-m/github-push-action@master
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GIT_TOKEN }}
           branch: ${{ github.ref }}
